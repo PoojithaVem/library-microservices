@@ -1,0 +1,135 @@
+{
+  "info": {
+    "name": "Library Management Microservices",
+    "description": "Register/login, browse books, and borrow/return via the API Gateway on :8080. Run 'Register' or 'Login' first to get a JWT, then use it in the Loans requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "bookId", "value": "1" },
+    { "key": "memberId", "value": "1" },
+    { "key": "loanId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        {
+          "name": "Create Book",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/books",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"978-0132350884\",\n  \"title\": \"Clean Code\",\n  \"author\": \"Robert C. Martin\",\n  \"totalCopies\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Books",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/books" }
+        },
+        {
+          "name": "Search Books (by title/author)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/books?search=clean" }
+        },
+        {
+          "name": "Get Book By Id",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/books/{{bookId}}" }
+        },
+        {
+          "name": "Check Availability",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/books/{{bookId}}/availability" }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "Get Member By Id (requires JWT)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/members/{{memberId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loans",
+      "item": [
+        {
+          "name": "Borrow Book",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/loans/borrow",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookId\": {{bookId}},\n  \"memberId\": {{memberId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "Return Book",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/loans/{{loanId}}/return"
+          }
+        },
+        {
+          "name": "Get Loans For Member",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/loans/member/{{memberId}}"
+          }
+        },
+        {
+          "name": "Get Loans For Member (Paged)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/loans/member/{{memberId}}/paged?page=0&size=10&sort=dueDate,desc"
+          }
+        }
+      ]
+    }
+  ]
+}

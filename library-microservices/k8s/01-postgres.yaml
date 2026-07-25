@@ -1,0 +1,91 @@
+# Postgres as a StatefulSet (not a Deployment): it needs a stable identity
+# and a persistent volume tied to that identity - a plain Deployment's pods
+# are interchangeable and don't guarantee the same volume comes back on restart.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: library-system
+data:
+  init-databases.sql: |
+    CREATE DATABASE book_db;
+    CREATE DATABASE member_db;
+    CREATE DATABASE loan_db;
+    GRANT ALL PRIVILEGES ON DATABASE book_db TO library_user;
+    GRANT ALL PRIVILEGES ON DATABASE member_db TO library_user;
+    GRANT ALL PRIVILEGES ON DATABASE loan_db TO library_user;
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: library-system
+type: Opaque
+stringData:
+  POSTGRES_USER: library_user
+  POSTGRES_PASSWORD: library_pass
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: library-system
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "library_user"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "library_user"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: postgres-init-scripts
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: library-system
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless service - stable DNS per pod, appropriate for a StatefulSet

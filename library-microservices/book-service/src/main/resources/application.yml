@@ -1,0 +1,41 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: book-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:book_db}
+    username: ${DB_USER:library_user}
+    password: ${DB_PASSWORD:library_pass}
+  jpa:
+    hibernate:
+      ddl-auto: update   # fine for a demo; use Flyway/Liquibase migrations in real prod
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 20
+        default_batch_fetch_size: 20   # mitigates N+1 on any future lazy collections
+    open-in-view: false   # deliberate: fetch what's needed in the service layer, not the view
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.library.bookservice: DEBUG

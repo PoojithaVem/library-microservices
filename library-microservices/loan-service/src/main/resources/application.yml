@@ -1,0 +1,74 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: loan-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:loan_db}
+    username: ${DB_USER:library_user}
+    password: ${DB_PASSWORD:library_pass}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true   # wraps every Feign call with a Resilience4j circuit breaker
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# Timeouts so a slow book-service/member-service can't hang loan-service threads
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 3000
+        readTimeout: 5000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      book-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50        # open the circuit if >=50% of the last 10 calls fail
+        wait-duration-in-open-state: 10s   # stay open 10s before trying half-open
+        permitted-number-of-calls-in-half-open-state: 3
+      member-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+  timelimiter:
+    instances:
+      book-service:
+        timeout-duration: 4s
+      member-service:
+        timeout-duration: 4s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+
+logging:
+  level:
+    com.library.loanservice: DEBUG
+    com.library.loanservice.client: DEBUG   # shows Feign request/response logs

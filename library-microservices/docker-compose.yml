@@ -1,0 +1,125 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: library-postgres
+    environment:
+      POSTGRES_USER: library_user
+      POSTGRES_PASSWORD: library_pass
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - library-net
+
+  discovery-server:
+    build: ./discovery-server
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - library-net
+
+  book-service:
+    build: ./book-service
+    container_name: book-service
+    environment:
+      DB_HOST: postgres
+      DB_NAME: book_db
+      DB_USER: library_user
+      DB_PASSWORD: library_pass
+      EUREKA_HOST: discovery-server
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    networks:
+      - library-net
+
+  member-service:
+    build: ./member-service
+    container_name: member-service
+    environment:
+      DB_HOST: postgres
+      DB_NAME: member_db
+      DB_USER: library_user
+      DB_PASSWORD: library_pass
+      EUREKA_HOST: discovery-server
+      JWT_SECRET: ${JWT_SECRET:-demo-only-secret-key-please-override-in-prod-1234567890}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    networks:
+      - library-net
+
+  loan-service:
+    build: ./loan-service
+    container_name: loan-service
+    environment:
+      DB_HOST: postgres
+      DB_NAME: loan_db
+      DB_USER: library_user
+      DB_PASSWORD: library_pass
+      EUREKA_HOST: discovery-server
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      book-service:
+        condition: service_started
+      member-service:
+        condition: service_started
+    networks:
+      - library-net
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    environment:
+      EUREKA_HOST: discovery-server
+    ports:
+      - "8080:8080"
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      book-service:
+        condition: service_started
+      member-service:
+        condition: service_started
+      loan-service:
+        condition: service_started
+    networks:
+      - library-net
+
+networks:
+  library-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
