@@ -1,0 +1,54 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: notification-service
+  config:
+    import: "optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888"
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest   # on first-ever startup with no committed offset, read from the beginning
+      # Wrapped in ErrorHandlingDeserializer rather than pointing directly at
+      # String/JsonDeserializer: if a message fails to deserialize (bad
+      # header, malformed JSON, whatever), this catches it and hands a
+      # DeserializationException to the container's error handler, which
+      # logs it and moves on to the next record - WITHOUT this wrapper, a
+      # single bad message crashes the listener container outright and
+      # blocks every message behind it, which is exactly what happened here.
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "com.library.notificationservice.dto"
+        spring.json.value.default.type: com.library.notificationservice.dto.LoanEvent
+
+# Local fallback if config-server is unreachable - real value centralized in
+# config-repo/application.yml (shared with loan-service's producer).
+app:
+  kafka:
+    topics:
+      loan-events: loan-events
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.library.notificationservice: DEBUG
