@@ -9,6 +9,7 @@ import com.library.loanservice.entity.Loan;
 import com.library.loanservice.entity.LoanStatus;
 import com.library.loanservice.exception.BookUnavailableException;
 import com.library.loanservice.exception.ResourceNotFoundException;
+import com.library.loanservice.kafka.LoanEventProducer;
 import com.library.loanservice.repository.LoanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ public class LoanService {
     private final LoanRepository loanRepository;
     private final BookClient bookClient;     // Feign - calls book-service over HTTP via Eureka
     private final MemberClient memberClient; // Feign - calls member-service over HTTP via Eureka
+    private final LoanEventProducer loanEventProducer; // Kafka - publishes borrow/return events, async
 
     /**
      * Orchestrates a borrow across three services:
@@ -64,7 +66,15 @@ public class LoanService {
                 .status(LoanStatus.ACTIVE)
                 .build();
 
-        return toDto(loanRepository.save(loan));
+        Loan saved = loanRepository.save(loan);
+
+        // 4. Publish event AFTER the write succeeds - notification-service
+        //    (or any future consumer) picks this up asynchronously. If Kafka
+        //    is briefly down, the borrow itself still succeeds; only the
+        //    notification is delayed, which is an acceptable trade-off here.
+        loanEventProducer.publishBorrowed(saved.getId(), saved.getBookId(), saved.getMemberId());
+
+        return toDto(saved);
     }
 
     @Transactional
@@ -80,6 +90,9 @@ public class LoanService {
 
         loan.setReturnDate(LocalDate.now());
         loan.setStatus(LoanStatus.RETURNED);
+
+        loanEventProducer.publishReturned(loan.getId(), loan.getBookId(), loan.getMemberId());
+
         return toDto(loan);
     }
 

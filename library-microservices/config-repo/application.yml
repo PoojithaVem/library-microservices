@@ -4,6 +4,13 @@
 app:
   loan:
     period-days: 14   # centralized business rule: how long a loan lasts
+  kafka:
+    topics:
+      # Single source of truth for the topic name - loan-service (producer)
+      # and notification-service (consumer) both read this same property,
+      # so the two can never drift apart by one hardcoding "loan-events" and
+      # the other hardcoding "loan_events" or similar.
+      loan-events: loan-events
 
 management:
   endpoints:

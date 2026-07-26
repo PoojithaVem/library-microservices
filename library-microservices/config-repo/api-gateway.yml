@@ -20,3 +20,7 @@ spring:
           uri: lb://loan-service
           predicates:
             - Path=/api/loans/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**

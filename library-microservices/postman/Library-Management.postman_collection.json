@@ -130,6 +130,19 @@
           }
         }
       ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Recent Notifications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/notifications",
+            "description": "Reads notification-service's in-memory list of processed loan events. Run this AFTER Borrow Book or Return Book - it should show a new entry within a second or two, proving the Kafka event actually flowed from loan-service to notification-service asynchronously, with no direct call between them."
+          }
+        }
+      ]
     }
   ]
 }

@@ -22,6 +22,36 @@ spring:
     openfeign:
       circuitbreaker:
         enabled: true   # wraps every Feign call with a Resilience4j circuit breaker
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all   # wait for all in-sync replicas - stronger durability than the default "1"
+      properties:
+        # By default, Spring's JsonSerializer stamps a header with the exact
+        # producer-side class name (com.library.loanservice.dto.LoanEvent).
+        # notification-service has its OWN copy of LoanEvent in a different
+        # package (com.library.notificationservice.dto.LoanEvent) - if the
+        # consumer trusts that header, it tries to load a class that doesn't
+        # exist on its classpath and silently fails to deserialize. Disabling
+        # type headers here forces the consumer to rely on its own configured
+        # target type (spring.json.value.default.type) instead - the correct
+        # pattern whenever producer and consumer are different services with
+        # their own copies of the same DTO shape.
+        spring.json.add.type.headers: false
+        # Prevents duplicate events if a producer retry happens after a
+        # transient broker hiccup - same "exactly-once at the producer" idea
+        # discussed in interview prep, applied here rather than just talked about.
+        enable.idempotence: true
+
+# Local fallback if config-server is unreachable - the real value lives in
+# config-repo/application.yml (shared across loan-service AND notification-service,
+# so both sides agree on the topic name without duplicating it in two codebases).
+app:
+  kafka:
+    topics:
+      loan-events: loan-events
 
 eureka:
   client:
