@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: member-service
+  config:
+    import: "optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888"
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:member_db}
     username: ${DB_USER:library_user}
@@ -17,8 +19,11 @@ spring:
         format_sql: true
     open-in-view: false
 
-# In real prod this comes from a vault/secret manager, never checked into git.
-# Demo default below is fine for local docker-compose only.
+# The secret itself deliberately stays here (env-var driven) rather than in
+# config-server's plaintext YAML files - a plain Config Server (no encryption/
+# vault backend) is not where real secrets belong. expiration-ms, by contrast,
+# IS centralized in config-repo/member-service.yml since it's a policy value,
+# not a secret - local value below is just the fallback if config-server is down.
 jwt:
   secret: ${JWT_SECRET:demo-only-secret-key-please-override-in-prod-1234567890}
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}

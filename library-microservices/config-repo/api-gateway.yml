@@ -1,0 +1,22 @@
+# Routing rules centralized here - in a real system this is one of the most
+# valuable things to externalize: adding/changing a route becomes a config
+# change, not a gateway redeploy.
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        - id: book-service
+          uri: lb://book-service
+          predicates:
+            - Path=/api/books/**
+        - id: member-service
+          uri: lb://member-service
+          predicates:
+            - Path=/api/members/**,/api/auth/**
+        - id: loan-service
+          uri: lb://loan-service
+          predicates:
+            - Path=/api/loans/**

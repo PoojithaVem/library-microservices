@@ -4,6 +4,13 @@ server:
 spring:
   application:
     name: book-service
+  config:
+    # "optional:" means if config-server is unreachable, this service still
+    # starts fine using only its own local application.yml - config-server
+    # is a convenience/centralization layer, not a hard dependency. That
+    # resilience trade-off is deliberate: a config outage shouldn't take
+    # down every service that depends on it.
+    import: "optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888"
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:book_db}
     username: ${DB_USER:library_user}

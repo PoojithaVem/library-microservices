@@ -15,10 +15,30 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U library_user"]
+      # -d postgres is required: pg_isready defaults to a database with the
+      # SAME NAME as the user if -d is omitted, which doesn't exist here -
+      # that mismatch was spamming "database library_user does not exist"
+      # every few seconds even though the app databases were fine.
+      test: ["CMD-SHELL", "pg_isready -U library_user -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - library-net
+
+  config-server:
+    build: ./config-server
+    container_name: config-server
+    volumes:
+      - ./config-repo:/config-repo   # mounts the centralized config files into the container
+    ports:
+      - "8888:8888"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - library-net
 
@@ -45,12 +65,15 @@ services:
       DB_USER: library_user
       DB_PASSWORD: library_pass
       EUREKA_HOST: discovery-server
+      CONFIG_SERVER_HOST: config-server
     ports:
       - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
       discovery-server:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
     networks:
       - library-net
@@ -64,6 +87,7 @@ services:
       DB_USER: library_user
       DB_PASSWORD: library_pass
       EUREKA_HOST: discovery-server
+      CONFIG_SERVER_HOST: config-server
       JWT_SECRET: ${JWT_SECRET:-demo-only-secret-key-please-override-in-prod-1234567890}
     ports:
       - "8082:8082"
@@ -71,6 +95,8 @@ services:
       postgres:
         condition: service_healthy
       discovery-server:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
     networks:
       - library-net
@@ -84,12 +110,15 @@ services:
       DB_USER: library_user
       DB_PASSWORD: library_pass
       EUREKA_HOST: discovery-server
+      CONFIG_SERVER_HOST: config-server
     ports:
       - "8083:8083"
     depends_on:
       postgres:
         condition: service_healthy
       discovery-server:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       book-service:
         condition: service_started
@@ -103,10 +132,13 @@ services:
     container_name: api-gateway
     environment:
       EUREKA_HOST: discovery-server
+      CONFIG_SERVER_HOST: config-server
     ports:
       - "8080:8080"
     depends_on:
       discovery-server:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       book-service:
         condition: service_started

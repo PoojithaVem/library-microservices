@@ -1,0 +1,25 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          # Reads YAML files named after each service's spring.application.name
+          # (book-service.yml, member-service.yml, etc.) from this folder.
+          search-locations: file:/config-repo
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.library.configserver: DEBUG

@@ -1,0 +1,12 @@
+# Shared defaults applied to ALL services that import from this config server,
+# regardless of application name. Service-specific files (below) can override
+# any of these.
+app:
+  loan:
+    period-days: 14   # centralized business rule: how long a loan lasts
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

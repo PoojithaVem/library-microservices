@@ -33,16 +33,24 @@ It's not trying to be a big system — it's trying to be a *correct, explainable
       │   (database-per-service — no cross-service joins)        │
       └────────────────────────────────────────────────────────  ┘
 
-      All four services register with:
-      ┌─────────────────────┐
-      │  discovery-server    │  :8761  (Netflix Eureka)
-      │  service registry     │
-      └─────────────────────┘
+      All five services (gateway + 3 services + themselves) register with:
+      ┌─────────────────────┐              ┌──────────────────────┐
+      │  discovery-server    │              │    config-server      │  :8888
+      │  :8761  (Eureka)     │              │  (Spring Cloud Config) │
+      │  "who is alive,      │              │  "what should each     │
+      │   and where"         │              │   service's config be" │
+      └─────────────────────┘              └──────────────────────┘
+                                                       ▲
+                                              pulled at startup by
+                                          api-gateway, book/member/loan-service
+                                          from config-repo/*.yml (git-free,
+                                          "native" mode for this demo)
 ```
 
 **Why this shape:**
 - **API Gateway** — single entry point; hides internal topology from clients, centralizes routing.
 - **Eureka discovery** — services find each other by name (`lb://book-service`), not hardcoded host:port. Enables horizontal scaling (multiple replicas) with automatic load balancing.
+- **Config Server** — centralizes shared/policy configuration (loan period, JWT expiry, Feign timeouts, circuit-breaker thresholds, gateway routes) in one place instead of duplicated across each service's local `application.yml`. Each service still has local values as a fallback (`optional:configserver:...` — if config-server is down, services still boot). This is deliberately separate from Eureka: **discovery answers "who's alive and where," config-server answers "what should I be configured with."**
 - **FeignClient** — loan-service talks to book-service and member-service declaratively, backed by a Resilience4j circuit breaker + fallback, so a downstream outage degrades gracefully instead of cascading.
 - **Database per service** — each service owns its schema; loan-service stores `bookId`/`memberId` as plain values (not JPA relationships across service boundaries) and resolves them live via Feign. This is the trade-off you make for service independence: no cross-service SQL joins, so you accept eventual consistency and a bit more network chatter in exchange for services that can be deployed, scaled, and changed independently.
 
@@ -58,8 +66,9 @@ It's not trying to be a big system — it's trying to be a *correct, explainable
 | **Spring Security + JWT** | `member-service`: `SecurityConfig`, `JwtAuthenticationFilter`, `JwtUtil`, BCrypt password hashing, stateless sessions |
 | **Microservices patterns** | Eureka discovery, API Gateway, **FeignClient** with fallback factories, Resilience4j circuit breaker + timeouts, database-per-service |
 | **PostgreSQL** | 3 logical databases, sequence-based IDs, optimistic locking via `@Version` |
-| **Docker** | Multi-stage Dockerfile per service (Maven build stage → slim JRE runtime stage), `docker-compose.yml` orchestrating all 6 containers |
+| **Docker** | Multi-stage Dockerfile per service (Maven build stage → slim JRE runtime stage), `docker-compose.yml` orchestrating all 7 containers |
 | **Kubernetes** | Namespace, ConfigMaps/Secrets, Postgres as a `StatefulSet` (stable storage), services as `Deployment`s with 2 replicas, readiness/liveness probes, resource requests/limits, `LoadBalancer` Service for the gateway |
+| **Spring Cloud Config** | `config-server` module + `config-repo/` folder — centralizes shared config (loan period, JWT expiry, Feign timeouts, circuit-breaker thresholds, gateway routes) across all 4 client services, each with a local fallback |
 
 ---
 
@@ -92,7 +101,13 @@ cd library-microservices
 docker compose up --build
 ```
 
-This starts, in order: Postgres (with 3 databases auto-created) → discovery-server → book/member/loan-service → api-gateway.
+This starts, in order: Postgres + config-server (parallel) → discovery-server → book/member/loan-service (pulling their config from config-server at boot) → api-gateway.
+
+You can confirm config-server is serving the right values before the other services even start by hitting it directly:
+```
+http://localhost:8888/loan-service/default
+```
+That returns the merged config loan-service will receive (config-repo/loan-service.yml + config-repo/application.yml).
 
 Wait ~60-90s for everything to register with Eureka (check http://localhost:8761), then hit the gateway at `http://localhost:8080`.
 
@@ -123,6 +138,8 @@ kubectl port-forward -n library-system svc/api-gateway 8080:80
 ```
 library-microservices/
 ├── discovery-server/    # Eureka registry
+├── config-server/        # Spring Cloud Config - centralized configuration
+├── config-repo/          # The actual config files config-server serves
 ├── api-gateway/          # Spring Cloud Gateway - single entry point
 ├── book-service/         # Catalog + availability (JPA, optimistic locking)
 ├── member-service/       # Auth (JWT), member profiles (Spring Security)
@@ -137,4 +154,5 @@ library-microservices/
 - `ddl-auto: update` instead of Flyway/Liquibase migrations — fine for a demo, not for real prod.
 - JWT secret is a plaintext env var default — in real prod this comes from a vault/secret manager (Azure Key Vault, etc.), never source control.
 - No distributed tracing (Zipkin/Jaeger) wired up — the natural next addition given the microservices shape.
+- Config-server uses **native mode** (a local folder) instead of a git-backed repo — simpler for a self-contained demo, but a real production setup would point `spring.cloud.config.server.git.uri` at an actual git repo so config changes are versioned and reviewable like code.
 - No API Gateway-level authentication — JWT is currently validated at member-service; a production gateway would often validate/propagate identity centrally.

@@ -4,12 +4,17 @@ server:
 spring:
   application:
     name: api-gateway
+  config:
+    import: "optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888"
   cloud:
     gateway:
       discovery:
         locator:
           enabled: false   # we define explicit routes below rather than auto-mapping every service
       routes:
+        # NOTE: these routes are ALSO centralized in config-repo/api-gateway.yml
+        # on config-server - kept here too as the local fallback if
+        # config-server is unreachable at startup (see "optional:" above).
         - id: book-service
           uri: lb://book-service
           predicates:

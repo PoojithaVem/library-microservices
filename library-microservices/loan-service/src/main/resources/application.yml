@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: loan-service
+  config:
+    import: "optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888"
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:loan_db}
     username: ${DB_USER:library_user}
@@ -28,7 +30,12 @@ eureka:
   instance:
     prefer-ip-address: true
 
-# Timeouts so a slow book-service/member-service can't hang loan-service threads
+# Timeouts so a slow book-service/member-service can't hang loan-service threads.
+# NOTE: this block and the resilience4j block below are now ALSO centralized
+# in config-repo/loan-service.yml on config-server; kept here too as the local
+# fallback for when config-server is unreachable (see "optional:" prefix
+# above) - Spring merges both, with config-server's values taking precedence
+# when it's reachable.
 feign:
   client:
     config:

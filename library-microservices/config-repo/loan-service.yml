@@ -1,0 +1,23 @@
+# Resilience settings centralized so the whole team can tune circuit-breaker
+# behavior for downstream calls in one place, without touching loan-service's
+# own codebase or local config.
+resilience4j:
+  circuitbreaker:
+    instances:
+      book-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+      member-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 3000
+        readTimeout: 5000

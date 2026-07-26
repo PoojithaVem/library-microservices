@@ -1,0 +1,3 @@
+# book-service currently has nothing beyond the shared application.yml above.
+# Kept as a placeholder - this is where book-specific centralized settings
+# (e.g. a default page size for search results) would go as the system grows.

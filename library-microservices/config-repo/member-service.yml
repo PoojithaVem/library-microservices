@@ -1,0 +1,6 @@
+# Centralized here instead of only living in member-service's local
+# application.yml, so the JWT expiry policy can be changed for the whole
+# team without a redeploy of member-service's jar - just a config-server
+# restart (or a /actuator/refresh call if using Spring Cloud Bus).
+jwt:
+  expiration-ms: 3600000   # 1 hour
