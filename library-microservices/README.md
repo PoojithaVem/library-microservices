@@ -1,5 +1,15 @@
 # Library Management System — Microservices
 
+commands to run(notes) - 
+
+docker compose stop member-service
+
+docker compose start member-service
+
+docker compose down
+
+docker compose up --build
+
 A small, deliberately-scoped microservices project built to demonstrate the full stack: **Java, Spring Boot, Spring Data JPA, Spring Security (JWT), Microservices patterns (service discovery, API gateway, FeignClient, circuit breaker), PostgreSQL, Docker, and Kubernetes.**
 
 It's not trying to be a big system — it's trying to be a *correct, explainable* one. Every design decision below is something you should be ready to justify in an interview.
