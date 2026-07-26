@@ -190,3 +190,30 @@ library-microservices/
 - loan-service publishes to Kafka as a **direct call after the DB commit**, not via the **Outbox pattern**. In the rare window between "loan saved" and "event published," a crash could lose the event. A real production system would write the event to an outbox table in the *same transaction* as the loan, then have a separate relay (e.g. Debezium CDC) publish it — guaranteeing the DB write and the event can never get out of sync. Worth naming this trade-off unprompted if asked "is this fully reliable?"
 - notification-service stores notifications **in-memory**, not in its own database — see the comment in `NotificationService.java`. Fine for demoing the Kafka pipeline; a real version would persist to its own `notification_db` (keeping database-per-service) or push straight to an email/SMS/push provider.
 - Kafka runs as a **single broker with replication factor 1** — no fault tolerance if that one broker dies. Real production Kafka runs 3+ brokers so a broker failure doesn't lose data.
+
+
+GUI tool (easier for repeated browsing, nicer for a demo)
+
+Install a free database client — DBeaver (https://dbeaver.io) or TablePlus are the most popular, or pgAdmin. Connect with these details:
+
+Host:     localhost
+Port:     5432
+Database: book_db   (or member_db, loan_db)
+Username: library_user
+Password: library_pass
+
+This gives you a proper table view — click a table, see rows, run queries with autocomplete, no memorizing psql commands.
+
+Quick check right now
+
+Run this one-liner to confirm all three of your databases and their tables exist:
+
+bash
+docker exec -it library-postgres psql -U library_user -d postgres -c "\l"
+
+Then check each has data:
+
+bash
+docker exec -it library-postgres psql -U library_user -d book_db -c "SELECT * FROM books;"
+docker exec -it library-postgres psql -U library_user -d member_db -c "SELECT * FROM members;"
+docker exec -it library-postgres psql -U library_user -d loan_db -c "SELECT * FROM lo
